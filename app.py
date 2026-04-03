@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 import streamlit as st
+from deep_translator import GoogleTranslator
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -113,10 +114,32 @@ def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
 # Main content
 # ---------------------------------------------------------------------------
 
+def _translate_titles(titles: list[str]) -> list[str]:
+    """Translate a list of English titles to Japanese using Google Translate."""
+    translator = GoogleTranslator(source="en", target="ja")
+    translated: list[str] = []
+    for title in titles:
+        if not title or not title.strip():
+            translated.append(title)
+            continue
+        try:
+            result = translator.translate(title)
+            translated.append(result if result else title)
+        except Exception:
+            translated.append(title)
+    return translated
+
+
 def make_clickable(row) -> str:
-    """Create an HTML hyperlink for the article title."""
+    """Create an HTML hyperlink for the article title with Japanese translation."""
     title = row["title"] if pd.notna(row["title"]) else "No title"
+    title_ja = row.get("title_ja", "") if pd.notna(row.get("title_ja", "")) else ""
     url = row["url"] if pd.notna(row["url"]) else "#"
+    if title_ja and title_ja != title:
+        return (
+            f'<a href="{url}" target="_blank">{title_ja}</a>'
+            f'<br><span style="color: #888; font-size: 0.85em;">{title}</span>'
+        )
     return f'<a href="{url}" target="_blank">{title}</a>'
 
 
@@ -129,6 +152,11 @@ def render_article_table(df: pd.DataFrame, n_display: int):
         return
 
     display_df = df.head(n_display).copy()
+
+    # Translate titles to Japanese
+    titles_to_translate = display_df["title"].fillna("").tolist()
+    with st.spinner("タイトルを翻訳中..."):
+        display_df["title_ja"] = _translate_titles(titles_to_translate)
 
     # Create clickable title column
     display_df["Article"] = display_df.apply(make_clickable, axis=1)
