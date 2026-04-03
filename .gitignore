@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+reuters_news.csv
+.env
